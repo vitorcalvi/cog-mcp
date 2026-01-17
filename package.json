@@ -1,0 +1,26 @@
+{
+  "name": "cog-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for semantic code search with Metal GPU acceleration",
+  "main": "dreams-mcp.ts",
+  "scripts": {
+    "start": "npx ts-node dreams-mcp.ts",
+    "build": "tsc"
+  },
+  "keywords": [
+    "mcp",
+    "code-search",
+    "semantic",
+    "mps",
+    "apple-silicon"
+  ],
+  "author": "vitorcalvi",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@types/node": "^25.0.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
