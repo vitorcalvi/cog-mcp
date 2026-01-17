@@ -124,8 +124,8 @@ Add to your `claude_desktop_config.json`:
 ```
 ┌─────────────────┐      MCP Protocol       ┌─────────────────┐
 │  Claude Desktop │  ◄──────────────────►   │    cog-mcp      │
-│  / AI Assistant │                          │   (TypeScript)  │
-└─────────────────┘                          └────────┬────────┘
+│  / AI Assistant │                         │   (TypeScript)  │
+└─────────────────┘                         └────────┬────────┘
                                                       │
                                               ┌───────▼───────┐
                                               │   Python Core │
