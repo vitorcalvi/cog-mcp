@@ -1,11 +1,16 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { 
+  CallToolRequestSchema, 
+  ListToolsRequestSchema, 
+  type CallToolResult 
+} from "@modelcontextprotocol/sdk/types.js";
 import { exec } from "child_process";
 
+
 // --- CONFIGURATION ---
-// The exact path you provided:
-const PYTHON_CORE_DIR = "/Users/vitorcalvi/dreams-ai-core";
+// The exact path to cog-core installation:
+const PYTHON_CORE_DIR = "/Users/vitorcalvi/Desktop/cog-core";
 // Using 'uv' to execute python within your managed environment
 const PYTHON_CMD = "uv run python";
 
@@ -53,7 +58,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   ]
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
   const { name, arguments: args } = request.params;
 
   // --- TOOL 1: MEMORY SEARCH (RAG) ---
@@ -131,30 +136,32 @@ except Exception as e:
   throw new Error("Unknown tool");
 });
 
-// Helper: Runs the python script INSIDE your core directory
-async function executeInCore(pythonScript: string) {
-  return new Promise((resolve) => {
-    // Escape double quotes for the shell command
-    const escapedScript = pythonScript.replace(/"/g, '\\"');
-    
-    // 1. CD into the core dir
-    // 2. Run uv python with the script
-    const command = `cd ${PYTHON_CORE_DIR} && ${PYTHON_CMD} -c "${escapedScript}"`;
+ // Helper: Runs the python script INSIDE your core directory
+ async function executeInCore(pythonScript: string): Promise<CallToolResult> {
+   return new Promise((resolve) => {
+     // Escape double quotes for the shell command
+     const escapedScript = pythonScript.replace(/"/g, '\\"');
+     
+     // 1. CD into the core dir
+     // 2. Run uv python with the script
+     const command = `cd ${PYTHON_CORE_DIR} && ${PYTHON_CMD} -c "${escapedScript}"`;
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        resolve({
-          content: [{ type: "text", text: `Execution Error: ${stderr || error.message}` }],
-          isError: true
-        });
-      } else {
-        // Attempt to return clean JSON, fallback to raw text if print failed
-        const output = stdout.trim();
-        resolve({ content: [{ type: "text", text: output }] });
-      }
-    });
-  });
-}
+     exec(command, (error, stdout, stderr) => {
+       if (error) {
+         resolve({
+           content: [{ type: "text", text: `Execution Error: ${stderr || error.message}` }],
+           isError: true
+         } as CallToolResult);
+       } else {
+         // Attempt to return clean JSON, fallback to raw text if print failed
+         const output = stdout.trim();
+         resolve({ content: [{ type: "text", text: output }] } as CallToolResult);
+       }
+     });
+   });
+ }
 
 const transport = new StdioServerTransport();
-await server.connect(transport);
+(async () => {
+  await server.connect(transport);
+})();
