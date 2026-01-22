@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@executeautomation/mcp-playwright"],
+      "timeout": 60
+    }
+  }
+}

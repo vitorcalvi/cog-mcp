@@ -3,8 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { exec } from "child_process";
 // --- CONFIGURATION ---
-// The exact path you provided:
-const PYTHON_CORE_DIR = "/Users/vitorcalvi/dreams-ai-core";
+// The exact path to cog-core installation:
+const PYTHON_CORE_DIR = "/Users/vitorcalvi/Desktop/cog-core";
 // Using 'uv' to execute python within your managed environment
 const PYTHON_CMD = "uv run python";
 const server = new Server({ name: "dreams-intelligence", version: "1.0.0" }, { capabilities: { tools: {} } });
@@ -89,28 +89,37 @@ except Exception as e:
     }
     // --- TOOL 2: FILE STRUCTURE (Tree-sitter) ---
     if (name === "get_file_structure") {
-        const filePath = String(args?.file_path);
+        const filePath = String(args?.file_path).replace(/'/g, "\\'").replace(/"/g, '\\"');
         const script = `
 import json
+import os
 from graph_builder import SymbolGraphBuilder
 try:
-    with open('${filePath}', 'r') as f:
-        code = f.read()
-    print(json.dumps(SymbolGraphBuilder().parse_symbols(code)))
+    if not os.path.exists('${filePath}'):
+        print(json.dumps({"error": "File not found", "path": '${filePath}'}))
+    else:
+        with open('${filePath}', 'r', encoding='utf-8') as f:
+            code = f.read()
+        symbols = SymbolGraphBuilder().parse_symbols(code)
+        print(json.dumps(symbols))
 except Exception as e:
-    print(json.dumps({"error": str(e)}))
+    print(json.dumps({"error": str(e), "type": str(type(e).__name__)}))
 `;
         return executeInCore(script);
     }
     // --- TOOL 3: RAW EMBEDDING (Debug/Direct) ---
     if (name === "generate_embedding") {
-        const text = String(args?.text).replace(/'/g, "\\'");
+        const text = String(args?.text).replace(/'/g, "\\'").replace(/"/g, '\\"');
         const script = `
 import json
+import numpy as np
 from mlx_engine import DreamsMLXEngine
 try:
     engine = DreamsMLXEngine()
-    print(json.dumps(engine.get_embedding('${text}'))) 
+    embedding = engine.get_embedding('${text}')
+    # Convert numpy ndarray to list for JSON serialization
+    embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
+    print(json.dumps({"embedding": embedding_list, "dimensions": len(embedding_list)}))
 except Exception as e:
     print(json.dumps({"error": str(e)}))
 `;
@@ -142,5 +151,7 @@ async function executeInCore(pythonScript) {
     });
 }
 const transport = new StdioServerTransport();
-await server.connect(transport);
+(async () => {
+    await server.connect(transport);
+})();
 //# sourceMappingURL=dreams-mcp.js.map
