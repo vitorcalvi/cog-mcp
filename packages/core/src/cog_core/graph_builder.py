@@ -13,6 +13,52 @@ from typing import Any
 
 import networkx as nx
 
+# Tree-sitter queries per language
+LANGUAGE_QUERIES = {
+    "python": """
+        (function_definition name: (identifier) @name)
+        (class_definition name: (identifier) @name)
+    """,
+    "javascript": """
+        (function_declaration name: (identifier) @name)
+        (function_declaration name: (property_identifier) @name)
+        (class_declaration name: (identifier) @name)
+    """,
+    "typescript": """
+        (function_declaration name: (identifier) @name)
+        (function_declaration name: (property_identifier) @name)
+        (class_declaration name: (identifier) @name)
+    """,
+    "tsx": """
+        (function_declaration name: (identifier) @name)
+        (function_declaration name: (property_identifier) @name)
+        (class_declaration name: (identifier) @name)
+    """,
+    "rust": """
+        (function_item name: (identifier) @name)
+        (struct_item name: (type_identifier) @name)
+    """,
+    "go": """
+        (function_declaration name: (identifier) @name)
+    """,
+    "ruby": """
+        (method name: (identifier) @name)
+        (class name: (constant) @name)
+    """,
+    "java": """
+        (method_declaration name: (identifier) @name)
+        (class_declaration name: (identifier) @name)
+    """,
+    "c": """
+        (function_definition declarator: (identifier) @name)
+        (struct_specifier name: (identifier) @name)
+    """,
+    "cpp": """
+        (function_definition declarator: (identifier) @name)
+        (class_specifier name: (type_identifier) @name)
+    """,
+}
+
 
 class SymbolGraphBuilder:
     """
@@ -35,11 +81,10 @@ class SymbolGraphBuilder:
         Args:
             lang_name: Language name (e.g., "python", "javascript", "typescript")
         """
-        self.language = get_language(lang_name)
-        self.parser = get_parser(lang_name)
-        # Map of resource name to operations that use it
+        self.language = get_language(lang_name)  # type: ignore
+        self.parser = get_parser(lang_name)  # type: ignore
+        self.lang_name = lang_name
         self.resource_dependencies: dict[str, set[str]] = defaultdict(set)
-        # Map of operation to resources it depends on
         self.operation_resources: dict[str, set[str]] = defaultdict(set)
 
     def parse_symbols(self, code: str) -> list[dict[str, Any]]:
@@ -54,29 +99,32 @@ class SymbolGraphBuilder:
         """
         tree = self.parser.parse(bytes(code, "utf8"))
 
-        query = self.language.query("""
-            (function_definition name: (identifier) @name)
-            (class_definition name: (identifier) @name)
-        """)
+        query_str = LANGUAGE_QUERIES.get(self.lang_name, LANGUAGE_QUERIES["python"])
+        query = self.language.query(query_str)
 
         symbols = []
 
-        # Try different tree-sitter API versions
         try:
             cursor = tree_sitter.QueryCursor(query)
             results = cursor.captures(tree.root_node)
-        except TypeError:  # pragma: no cover
-            results = {}  # Fallback
+        except TypeError:
+            results = {}
 
-        # Handle dict format (newer tree-sitter): {'name': [Node, Node], 'type': [Node]}
         if isinstance(results, dict):
             for tag, nodes in results.items():
                 for node in nodes:
+                    if node is None:
+                        continue
                     parent_type = node.parent.type if node.parent else ""
+                    node_text = node.text
+                    if isinstance(node_text, bytes):
+                        node_text = node_text.decode("utf8")
                     symbols.append(
                         {
-                            "name": node.text.decode("utf8"),
-                            "type": parent_type.replace("_definition", ""),
+                            "name": node_text,
+                            "type": parent_type.replace("_definition", "")
+                            .replace("_declaration", "")
+                            .replace("_item", ""),
                             "line": node.start_point[0] + 1,
                         }
                     )
