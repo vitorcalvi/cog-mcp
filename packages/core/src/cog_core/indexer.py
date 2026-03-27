@@ -29,7 +29,6 @@ LANGUAGE_EXTENSIONS = {
     "java": [".java"],
     "c": [".c", ".h"],
     "cpp": [".cpp", ".cc", ".cxx", ".hpp", ".hxx"],
-    "markdown": [".md", ".markdown"],
 }
 
 EXT_TO_LANG = {ext: lang for lang, exts in LANGUAGE_EXTENSIONS.items() for ext in exts}
@@ -37,8 +36,6 @@ EXT_TO_LANG = {ext: lang for lang, exts in LANGUAGE_EXTENSIONS.items() for ext i
 
 def detect_language(target_dir: str) -> str:
     """Auto-detect language from file extensions in target directory."""
-    import os
-
     ext_counts: dict[str, int] = {}
     for root, _, files in os.walk(target_dir):
         for f in files:
