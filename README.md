@@ -35,6 +35,18 @@ cd packages/core
 uv run cog-index ./your/project
 ```
 
+### Supported languages
+
+Cog auto-detects language from file extension. Supported: **Python, JavaScript, TypeScript, TSX, Rust, Go, Ruby, Java, C, C++**
+
+```bash
+# Auto-detect (default)
+uv run cog-index ./your/project
+
+# Force specific language
+uv run cog-index ./your/project --lang rust
+```
+
 ## Connect to OpenCode
 
 Edit `~/.config/opencode/opencode.json`:
