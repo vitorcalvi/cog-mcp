@@ -10,13 +10,42 @@ Indexes a codebase by:
 
 import os
 import time
-from pathlib import Path
 from typing import Optional
 
 import lancedb
 
 from cog_core.mlx_engine import DreamsMLXEngine
 from cog_core.graph_builder import SymbolGraphBuilder
+
+
+LANGUAGE_EXTENSIONS = {
+    "python": [".py"],
+    "javascript": [".js", ".mjs", ".cjs"],
+    "typescript": [".ts"],
+    "tsx": [".tsx"],
+    "rust": [".rs"],
+    "go": [".go"],
+    "ruby": [".rb"],
+    "java": [".java"],
+    "c": [".c", ".h"],
+    "cpp": [".cpp", ".cc", ".cxx", ".hpp", ".hxx"],
+}
+
+EXT_TO_LANG = {ext: lang for lang, exts in LANGUAGE_EXTENSIONS.items() for ext in exts}
+
+
+def detect_language(target_dir: str) -> str:
+    """Auto-detect language from file extensions in target directory."""
+    ext_counts: dict[str, int] = {}
+    for root, _, files in os.walk(target_dir):
+        for f in files:
+            ext = os.path.splitext(f)[1]
+            if ext in EXT_TO_LANG:
+                ext_counts[ext] = ext_counts.get(ext, 0) + 1
+    if not ext_counts:
+        return "python"
+    dominant_ext = max(ext_counts, key=ext_counts.get)  # type: ignore
+    return EXT_TO_LANG.get(dominant_ext, "python")
 
 
 class CodeIndexer:
@@ -29,19 +58,26 @@ class CodeIndexer:
     """
 
     def __init__(
-        self, db_path: str = "./cog_memory", file_extensions: Optional[list[str]] = None
+        self,
+        db_path: str = "./cog_memory",
+        language: str = "python",
+        file_extensions: Optional[list[str]] = None,
     ):
         """
         Initialize the indexer.
 
         Args:
             db_path: Path to LanceDB database
-            file_extensions: List of file extensions to index (default: [".py"])
+            language: Programming language for tree-sitter parsing
+            file_extensions: List of file extensions to index (default: language-specific)
         """
         self.db_path = db_path
-        self.file_extensions = file_extensions or [".py"]
+        self.language = language
+        self.file_extensions = file_extensions or LANGUAGE_EXTENSIONS.get(
+            language, [".py"]
+        )
         self.engine = DreamsMLXEngine()
-        self.builder = SymbolGraphBuilder()
+        self.builder = SymbolGraphBuilder(language)
 
     def index_codebase(
         self, target_dir: str = ".", exclude_dirs: Optional[list[str]] = None
@@ -174,9 +210,20 @@ def main():
     parser = argparse.ArgumentParser(description="Index codebase for semantic search")
     parser.add_argument("target", default=".", nargs="?", help="Directory to index")
     parser.add_argument("--db", default="./cog_memory", help="Database path")
+    parser.add_argument(
+        "--lang",
+        default="auto",
+        choices=list(LANGUAGE_EXTENSIONS.keys()) + ["auto"],
+        help="Programming language (auto-detects if not specified)",
+    )
     args = parser.parse_args()
 
-    indexer = CodeIndexer(db_path=args.db)
+    language = args.lang
+    if language == "auto":
+        language = detect_language(args.target)
+        print(f"🔍 Auto-detected language: {language}")
+
+    indexer = CodeIndexer(db_path=args.db, language=language)
     indexer.index_codebase(args.target)
 
 
